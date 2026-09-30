@@ -14,8 +14,8 @@ st.set_page_config(
 st.title("⭐ Project Star: 911 Automation Dashboard")
 st.markdown("Select your project section, upload your master SPSS (`.sav`) file, choose your date window, and run the pipeline.")
 
-# Section Selector in Sidebar
-section_choice = st.sidebar.selectbox("Select Project Section:", ["Growth", "R10Mil"])
+# Section Selector in Sidebar (Growth, R10Mil, PUBSC)
+section_choice = st.sidebar.selectbox("Select Project Section:", ["Growth", "R10Mil", "PUBSC"])
 
 st.header(f"1. Upload Data ({section_choice} Section)")
 uploaded_file = st.file_uploader(f"Upload Master SPSS Data File (.sav) for {section_choice}", type=["sav"])
@@ -49,7 +49,7 @@ else:
 # --- Run Pipeline Button ---
 if st.button("🚀 Run Processing & Generate Reports", type="primary"):
     if uploaded_file is None:
-        st.error("⚠️️ Please upload a valid SPSS (.sav) file first.")
+        st.error("⚠️ Please upload a valid SPSS (.sav) file first.")
     else:
         with st.spinner(f"Processing {section_choice} pipeline... Please wait."):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".sav") as tmp_file:
@@ -112,9 +112,17 @@ if st.button("🚀 Run Processing & Generate Reports", type="primary"):
                     df_filtered.loc[valid_intnr, 'ORIGIN'] = "Web"
                     df_filtered.loc[valid_intnr, 'OWNER'] = r"FNBJNB01\Web"
                     
-                    for col_target, col_src in [('PRIM_OFCR_IND', 'V8026'), ('OFFICER_NAME_AND_SURNAME', 'V8016'), 
-                                                  ('BUSINESS_NAME', 'V56011'), ('REGIONS', 'V12290'), 
-                                                  ('SUB_REGIONS', 'V13290'), ('SEGMENT', 'V44011')]:
+                    # Section-specific column mappings for SUB_REGIONS and SEGMENT
+                    sub_region_col = 'V8013' if section_choice == 'PUBSC' else 'V13290'
+                    segment_col = 'V13290' if section_choice == 'PUBSC' else 'V44011'
+
+                    mapping_pairs = [
+                        ('PRIM_OFCR_IND', 'V8026'), ('OFFICER_NAME_AND_SURNAME', 'V8016'), 
+                        ('BUSINESS_NAME', 'V56011'), ('REGIONS', 'V12290'), 
+                        ('SUB_REGIONS', sub_region_col), ('SEGMENT', segment_col)
+                    ]
+
+                    for col_target, col_src in mapping_pairs:
                         if col_src in df_filtered.columns:
                             df_filtered.loc[valid_intnr, col_target] = df_filtered[col_src]
 
@@ -133,9 +141,19 @@ if st.button("🚀 Run Processing & Generate Reports", type="primary"):
                         df_filtered['RM_BM_NPS'] = df_filtered['Q14_2'].apply(calculate_nps_bucket)
                         df_filtered['RM_BM_NPS_OPEN_ENDED'] = df_filtered.apply(lambda r: r['TQ14_2_OPEN'] if 'TQ14_2_OPEN' in df_filtered.columns and pd.notna(r.get('TQ14_2_OPEN')) and r['Q14_2'] < 7 else None, axis=1)
 
-                    # Bank switches
-                    bank_columns = [('Q16_1_1', 'Absa'), ('Q16_1_2', 'Capitec'), ('Q16_1_3', 'Investec'),
-                                    ('Q16_1_4', 'Mercantile'), ('Q16_1_5', 'Nedbank'), ('Q16_1_6', 'Sasfin'), ('Q16_1_7', 'Standard Bank')]
+                    # Section-specific Bank switches
+                    if section_choice == 'PUBSC':
+                        bank_columns = [
+                            ('Q16_1_1', 'Absa'), ('Q16_1_2', 'Investec'), ('Q16_1_3', 'Nedbank'),
+                            ('Q16_1_4', 'Standard Bank'), ('Q16_1_5', 'Capitec'), ('Q16_1_6', 'Refused'),
+                        ]
+                        loop_cols = ['TQ16_1C6', 'TQ16_1C7', 'TQ16_1C8']
+                    else:
+                        bank_columns = [
+                            ('Q16_1_1', 'Absa'), ('Q16_1_2', 'Capitec'), ('Q16_1_3', 'Investec'),
+                            ('Q16_1_4', 'Mercantile'), ('Q16_1_5', 'Nedbank'), ('Q16_1_6', 'Sasfin'), ('Q16_1_7', 'Standard Bank'),
+                        ]
+                        loop_cols = ['TQ16_1C8', 'TQ16_1C9', 'TQ16_1C10']
                     
                     switch_compiled = []
                     for idx, row in df_filtered.iterrows():
@@ -143,7 +161,7 @@ if st.button("🚀 Run Processing & Generate Reports", type="primary"):
                         for col_flag, bank_label in bank_columns:
                             if col_flag in df_filtered.columns and row.get(col_flag) == 1:
                                 matched_banks.append(bank_label)
-                        for loop_col in ['TQ16_1C8', 'TQ16_1C9', 'TQ16_1C10']:
+                        for loop_col in loop_cols:
                             if loop_col in df_filtered.columns and pd.notna(row.get(loop_col)) and str(row[loop_col]).strip() != '':
                                 matched_banks.append(str(row[loop_col]).strip())
                         switch_compiled.append(",".join(matched_banks))
@@ -165,7 +183,7 @@ if st.button("🚀 Run Processing & Generate Reports", type="primary"):
                     if 'Q16' in df_filtered.columns:
                         df_filtered.loc[df_filtered['Q16'] == 1, 'Qualifier'] = "Priority"
 
-                    # Text Categorization
+                    # Text Categorization Keywords
                     case_desc_upper = df_filtered['CASE_DESCRIPTION'].fillna('').str.upper() if 'CASE_DESCRIPTION' in df_filtered.columns else pd.Series([""]*len(df_filtered))
                     people_keywords = [
                         'BM', 'BUSINESS MANAGER', 'BUSINESS MANAGERS', 'BUSINESS BANKER', 'BUSINESS BANKERS',
@@ -266,8 +284,13 @@ if st.button("🚀 Run Processing & Generate Reports", type="primary"):
 
                     run_date_file = today.strftime("%Y_%m_%d")
 
-                    # Dynamic Prefix based on Section Choice
-                    prefix = "Business_Client_911" if section_choice == "Growth" else "Enterprise_Client_911"
+                    # Dynamic File Prefix based on Section Choice
+                    if section_choice == "Growth":
+                        prefix = "Business_Client_911"
+                    elif section_choice == "R10Mil":
+                        prefix = "Enterprise_Client_911"
+                    else:
+                        prefix = "PUBSC_Client_911"
 
                     f1_data = base_priority_data[(base_priority_data.get('FNB_NPS') == "NPS - Detractor") | (base_priority_data.get('RM_BM_NPS') == "NPS - Detractor")]
                     f2_data = f1_data.drop(columns=['PRODUCT_PEOPLE_PROCESS'], errors='ignore')
