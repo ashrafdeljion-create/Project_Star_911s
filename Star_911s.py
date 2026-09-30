@@ -17,11 +17,6 @@ st.markdown("### `[02 // CONTROL ROOM]` &nbsp;&nbsp;&nbsp; `SYS.READY // PIPELIN
 st.markdown("Execute and monitor each section of the Project Star 911 market research data pipeline.")
 st.markdown("---")
 
-# --- CONTROL ROOM HEADER ---
-st.markdown("### `[02 // CONTROL ROOM]` &nbsp;&nbsp;&nbsp; `SYS.READY // PIPELINE 2.2`")
-st.markdown("Execute and monitor each section of the Project Star 911 market research data pipeline.")
-st.markdown("---")
-
 # --- SYSTEM METRICS BAR ---
 col_m1, col_m2, col_m3, col_m4 = st.columns(4)
 col_m1.metric("Pipeline Status", "IDLE / READY", "Stable")
