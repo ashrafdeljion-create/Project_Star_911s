@@ -6,10 +6,16 @@ import os
 import tempfile
 
 st.set_page_config(
-    page_title="Project Star: Control Room",
+    page_title="Project Star: Weekly 911's Control Room",
     page_icon="⭐",
     layout="wide"
 )
+
+# --- CONTROL ROOM HEADER ---
+st.title("⭐ Project Star: Weekly 911's")
+st.markdown("### `[02 // CONTROL ROOM]` &nbsp;&nbsp;&nbsp; `SYS.READY // PIPELINE 2.2`")
+st.markdown("Execute and monitor each section of the Project Star 911 market research data pipeline.")
+st.markdown("---")
 
 # --- CONTROL ROOM HEADER ---
 st.markdown("### `[02 // CONTROL ROOM]` &nbsp;&nbsp;&nbsp; `SYS.READY // PIPELINE 2.2`")
