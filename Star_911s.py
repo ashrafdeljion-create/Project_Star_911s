@@ -4,8 +4,6 @@ import pyreadstat
 from datetime import datetime, timedelta
 import os
 import tempfile
-import zipfile
-import io
 
 st.set_page_config(
     page_title="Project Star: 911 Automation Dashboard",
@@ -14,11 +12,13 @@ st.set_page_config(
 )
 
 st.title("⭐ Project Star: 911 Automation Dashboard")
-st.markdown("Upload your master SPSS (`.sav`) file below, select your target date window, and run the pipeline to generate your reports.")
+st.markdown("Select your project section, upload your master SPSS (`.sav`) file, choose your date window, and run the pipeline.")
 
-# --- Sidebar or Main Panel Controls ---
-st.header("1. Upload Data")
-uploaded_file = st.file_uploader("Upload Master SPSS Data File (.sav)", type=["sav"])
+# Section Selector in Sidebar
+section_choice = st.sidebar.selectbox("Select Project Section:", ["Growth", "R10Mil"])
+
+st.header(f"1. Upload Data ({section_choice} Section)")
+uploaded_file = st.file_uploader(f"Upload Master SPSS Data File (.sav) for {section_choice}", type=["sav"])
 
 st.header("2. Configure Date Window")
 date_mode = st.radio("Select Date Filtering Mode:", ["Dynamic Past 7 Days (Auto Friday)", "Custom Date Range"])
@@ -49,10 +49,9 @@ else:
 # --- Run Pipeline Button ---
 if st.button("🚀 Run Processing & Generate Reports", type="primary"):
     if uploaded_file is None:
-        st.error("⚠️ Please upload a valid SPSS (.sav) file first.")
+        st.error("⚠️️ Please upload a valid SPSS (.sav) file first.")
     else:
-        with st.spinner("Processing pipeline... Please wait."):
-            # Save uploaded file to a temporary location so pyreadstat can read it
+        with st.spinner(f"Processing {section_choice} pipeline... Please wait."):
             with tempfile.NamedTemporaryFile(delete=False, suffix=".sav") as tmp_file:
                 tmp_file.write(uploaded_file.getvalue())
                 tmp_path = tmp_file.name
@@ -88,7 +87,7 @@ if st.button("🚀 Run Processing & Generate Reports", type="primary"):
                 if df_filtered.empty:
                     st.warning("⚠️ No records found matching the selected criteria.")
                 else:
-                    st.success(f"✅ Found {len(df_filtered)} records for this window!")
+                    st.success(f"✅ Found {len(df_filtered)} records for this window in {section_choice}!")
 
                     # Transformations
                     if 'INTNR' not in df_filtered.columns:
@@ -168,10 +167,56 @@ if st.button("🚀 Run Processing & Generate Reports", type="primary"):
 
                     # Text Categorization
                     case_desc_upper = df_filtered['CASE_DESCRIPTION'].fillna('').str.upper() if 'CASE_DESCRIPTION' in df_filtered.columns else pd.Series([""]*len(df_filtered))
-                    people_keywords = ['BM', 'BUSINESS MANAGER', 'BUSINESS BANKER', 'PRIVATE BANKER', 'RM', 'RELATIONSHIP MANAGER', 'STAFF', 'CLIENTS']
-                    process_keywords = ['SYSTEM', 'PROCESS', 'SERVICE', 'DELAY', 'QUERY', 'ACCESS', 'APP']
-                    product_keywords = ['FEE', 'CHARGES', 'LOAN', 'ACCOUNT', 'INVESTMENT', 'CARD']
-                    none_keywords = ['NO IMPROVEMENT', 'NONE', 'SATISFIED', 'ALL GOOD', 'N/A']
+                    people_keywords = [
+                        'BM', 'BUSINESS MANAGER', 'BUSINESS MANAGERS', 'BUSINESS BANKER', 'BUSINESS BANKERS',
+                        'PRIVATE BANKER', 'BUSINESS CONSULTANT', 'RM ', 'RELATIONSHIP MANAGER', 'TELLERS',
+                        'CONSULTANT', 'BANKER', 'STAFF', 'REPRESENTATIVE', 'PERSONAL', 'HUMAN', 'MANAGEE',
+                        'BROKERS', 'RELATIONSHIP', 'COMMUNICATE', 'TREATED', 'INTERACTION', 'PEOPLE', 'CONTACTS',
+                        'CONTACT', 'COMMUNICATION', 'SOMEONE', 'CUSTOMER SERVICE', 'BM/RM', 'RM', 'PERSON',
+                        'WELCOME', 'MANNER', 'WALK', 'HONESTY', 'TRUST', 'ATTENDING', 'PROMISED', 'UNDERSTAND', 'CLIENTS'
+                    ]
+                    process_keywords = [
+                        'LETTER', 'SECURE', 'GUARANTEE', 'ACCESS', 'ACCESSIBLE', 'ACTION', 'ALLOWS', 'APPROVED',
+                        'ASSIST', 'ATTENDED', 'ATTENTION', 'CHANGE', 'CONNECTIVITY', 'CUSTOMER', 'COMMUNICATION',
+                        'DEBIT', 'DISRUPTING', 'DOCUMENTATION', 'EASIER', 'EASILY', 'ENQUIRIE', 'FEEDBACK',
+                        'FINGER', 'FOLLOWING', 'FRAUD', 'FUNCTIONALITY', 'FUNDING', 'PROVIDE', 'INFORMATION', 
+                        'ISSUES', 'LENDING', 'LONG', 'NETWORK', 'NOTIFICATION', 'NOTIFIED', 'OPENING', 'ORDER', 
+                        'OTP', 'PERIOD', 'PREVENT', 'PROCESS', 'QUERIES', 'QUEUE', 'QUEUES', 'QUICKER', 'QUICKLY', 
+                        'REGULATION', 'RESOLVE', 'RETURN', 'REVERSE', 'QUERY', 'RESOLUTION', 'SECURITY', 'SERVICE', 
+                        'SETUP', 'SPAM', 'SPEED', 'SYSTEM', 'TIME', 'TRANSACTION', 'TRANSFER', 'TURNAROUND', 
+                        'UNAUTHORISED', 'USER-FRIENDLY', 'WAITING', 'WORKING', 'FASTER', 'EXPIRE', 'QUICK', 
+                        'SANITIZER', 'HELP', 'LINK', 'PROMISES', 'CONVENIENT', 'CLOSING', 'EFFICIENCY', 'URGENCY', 
+                        'THROUGH', 'SUNDAY', 'SATURDAY', 'DESKS', 'INQUIRY', 'POINTS', 'VERIFYING MY ACCOUNT', 
+                        'THE LAW ON CALL', 'IF THERE IS A DISPUTE'
+                    ]
+                    product_keywords = [
+                        'SHARIAH', 'INVESTMENT', 'SOLUTION', 'EQUITIE', 'CASH', 'CHEQUES', 'MONEY', 'CARD', 
+                        'FLEET', 'ONLINE BANKING', 'OVERDRAFT', 'BUSINESS BANKING', 'INVESTMENTS', 'INSURANCE', 
+                        'APP', 'FNB BANKING APP', 'CREDIT APPLICATION', 'BANK CHARGES', 'BANK FEES', 
+                        'BANKING COSTS', 'COSTS', 'BUSINESS ACCOUNT', 'CONTACT CENTRE', 'CALL CENTRE', 
+                        'CALL ACCOUNTS', 'CALL ACCOUNT', 'INVESTMENT ACCOUNTS', 'PRICING', 'SPEED POINT', 
+                        'TRANSACTION', 'FICA', 'ONLINE', 'MONEY MARKET', 'FOREX', 'CREDIT CARDS', 'PRODUCTS', 
+                        'FOREIGN', 'E-BUCKS', 'PRIVATE BANKING', 'VEHICLE', 'VAF', 'CASH WITHDRAWAL', 
+                        'E-WALLET', 'BUSINESS', 'PROPERTY', 'FINANCE', 'WESBANK', 'SHARER', 'TRADE', 
+                        'BRANCHES', 'FACILITIES', 'CURRENCY', 'UIF', 'COVID', 'MERCHANT', 'ATM', 'PAY', 
+                        'EBACKS', 'INTERNET', 'BANKING', 'LEVIES', 'COST', 'LOAN', 'EXPENSIVE', 'FEE', 
+                        'E BUCKS', 'NEW ACCOUNT', 'FINANCING', 'CREDIT', 'LOANS', 'INTEREST', 'RATES', 
+                        'FEES', 'CHARGE', 'TRAINING', 'ADVICE', 'INCONTACT', 'NOTIFICATIONS', 'BENEFITS', 
+                        'REWARDS', 'EBUCKS', 'ACCOUNTS', 'STATEMENTS', 'TRANSACTIONS', 'PAYMENTS', 
+                        'GIVING FUNDS FOR COMPANY ASSETS'
+                    ]
+                    none_keywords = [
+                        'NO IMPROVEMENT', 'T THINK', 'DON?T KNOW', 'ALL FINE FROM MY SIDE', 'N/A', 'NOTHING', 
+                        'NOTHING TO IMPROVE', 'ANYTHING', 'I AM SATISFIED', 'I HAVE NO ISSUES', 'NO COMMENT', 
+                        'NONE', 'HAPPY WITH EVERYTHING', 'NO COMPLAINT AT THE MOMENT', 'SATISFIED', 'I AM HAPPY', 
+                        'NO IMPROVEMENTS', 'ALL GOOD', 'ALL HAPPY', 'ALL IN ORDER', 'CANT THINK OF ANY', 
+                        'DONT KNOW', 'FUCK', 'GOOD', 'I DO NOT HAVE', 'T HAVE', 'HAVE ANSWERS', 'ANY ISSUES', 
+                        'NA', 'NOT APPLICABLE', 'NOT MUCH', 'NOT NOW', 'NOT SURE', 'NOT AT THE MOMENT', 
+                        'NOT SURE OF ANY', 'NOT THAT I THINK OF', '-1', 'EVERYTHING', 'EXCELLENT', 'KNOW', 
+                        'ALL IS FINE', 'ANY PROBLEM', 'NO ASPECTS', 'NO ASPECT FOR FNB TO IMPROVE ON',
+                        'NO SINGLE IMPORTANT ASPECT THAT FNB  NEEDS TO IMPROVE ON', 'NO ASPECT', 
+                        'NO IMPORTATNT ASPECT', 'NO IMPORTANT ASPECT', 'NO SINGLE MOST IMPORTANT ASPECT', 'NO IMPROVMENTS'
+                    ]
 
                     def contains_keywords(text, kw_list):
                         return 1 if any(kw in text for kw in kw_list) else 0
@@ -182,7 +227,8 @@ if st.button("🚀 Run Processing & Generate Reports", type="primary"):
                     df_filtered['NONE_OVERRIDE'] = case_desc_upper.apply(lambda x: contains_keywords(x, none_keywords))
 
                     def apply_triple_p_logic(row):
-                        if row.get('NONE_OVERRIDE') == 1: return "NONE"
+                        if row.get('NONE_OVERRIDE') == 1:
+                            return "NONE"
                         p, pp, pr = row.get('PRODUCT_1') == 1, row.get('People_1') == 1, row.get('PROCESS_1') == 1
                         if pp and pr and p: return "ALL"
                         if p and pr: return "PRODUCT & PROCESS"
@@ -195,7 +241,8 @@ if st.button("🚀 Run Processing & Generate Reports", type="primary"):
 
                     df_filtered['PRODUCT_PEOPLE_PROCESS'] = df_filtered.apply(apply_triple_p_logic, axis=1)
 
-                    # Replace commas in verbatims with tilde
+                    df_filtered = df_filtered.sort_values(by='INTNR', ascending=True).copy()
+
                     verbatim_cols = ['CASE_DESCRIPTION', 'FNB_NPS_OPEN_ENDED', 'RM_BM_NPS_OPEN_ENDED', 'WOULD_CONSIDER_SWITCH_TO', 'REASON']
                     for col in verbatim_cols:
                         if col in df_filtered.columns:
@@ -217,34 +264,41 @@ if st.button("🚀 Run Processing & Generate Reports", type="primary"):
 
                     base_priority_data = df_priority[keep_columns].copy()
 
-                    # Generate CSV outputs in memory for downloading
                     run_date_file = today.strftime("%Y_%m_%d")
+
+                    # Dynamic Prefix based on Section Choice
+                    prefix = "Business_Client_911" if section_choice == "Growth" else "Enterprise_Client_911"
 
                     f1_data = base_priority_data[(base_priority_data.get('FNB_NPS') == "NPS - Detractor") | (base_priority_data.get('RM_BM_NPS') == "NPS - Detractor")]
                     f2_data = f1_data.drop(columns=['PRODUCT_PEOPLE_PROCESS'], errors='ignore')
                     f3_data = base_priority_data
                     f4_data = base_priority_data.drop(columns=['PRODUCT_PEOPLE_PROCESS'], errors='ignore')
 
-                    st.success("🎉 Processing complete! Download your output files below:")
+                    st.success(f"🎉 Processing complete for **{section_choice}**! Download your output files below:")
 
-                    # Create download buttons
                     col_d1, col_d2 = st.columns(2)
                     with col_d1:
-                        st.download_button("📥 Download Output 1 (NPS D Classification)", 
-                                           f1_data.to_csv(sep='|', index=False, encoding='utf-8-sig').encode('utf-8-sig'), 
-                                           file_name=f"Business_Client_911_NPS_D_classification_{run_date_file}.csv", mime="text/csv")
-                        
-                        st.download_button("📥 Download Output 2 (NPS D NO Classification)", 
-                                           f2_data.to_csv(sep='|', index=False, encoding='utf-8-sig').encode('utf-8-sig'), 
-                                           file_name=f"Business_Client_911_NPS_D_NO_classification_{run_date_file}.csv", mime="text/csv")
+                        st.download_button(
+                            "📥 Download Output 1 (NPS D Classification)", 
+                            f1_data.to_csv(sep='|', index=False, encoding='utf-8-sig').encode('utf-8-sig'), 
+                            file_name=f"{prefix}_NPS_D_classification_{run_date_file}.csv", mime="text/csv"
+                        )
+                        st.download_button(
+                            "📥 Download Output 2 (NPS D NO Classification)", 
+                            f2_data.to_csv(sep='|', index=False, encoding='utf-8-sig').encode('utf-8-sig'), 
+                            file_name=f"{prefix}_NPS_D_NO_classification_{run_date_file}.csv", mime="text/csv"
+                        )
                     with col_d2:
-                        st.download_button("📥 Download Output 3 (NPS D S Classification)", 
-                                           f3_data.to_csv(sep='|', index=False, encoding='utf-8-sig').encode('utf-8-sig'), 
-                                           file_name=f"Business_Client_911_NPS_D_S_classification_{run_date_file}.csv", mime="text/csv")
-                        
-                        st.download_button("📥 Download Output 4 (NPS D S NO Classification)", 
-                                           f4_data.to_csv(sep='|', index=False, encoding='utf-8-sig').encode('utf-8-sig'), 
-                                           file_name=f"Business_Client_911_NPS_D_S_NO_classification_{run_date_file}.csv", mime="text/csv")
+                        st.download_button(
+                            "📥 Download Output 3 (NPS D S Classification)", 
+                            f3_data.to_csv(sep='|', index=False, encoding='utf-8-sig').encode('utf-8-sig'), 
+                            file_name=f"{prefix}_NPS_D_S_classification_{run_date_file}.csv", mime="text/csv"
+                        )
+                        st.download_button(
+                            "📥 Download Output 4 (NPS D S NO Classification)", 
+                            f4_data.to_csv(sep='|', index=False, encoding='utf-8-sig').encode('utf-8-sig'), 
+                            file_name=f"{prefix}_NPS_D_S_NO_classification_{run_date_file}.csv", mime="text/csv"
+                        )
 
             except Exception as e:
                 st.error(f"❌ An error occurred during processing: {e}")
