@@ -7,7 +7,7 @@ import tempfile
 import zipfile
 import io
 
-st.set_page_title_page_config(
+st.set_page_config(
     page_title="Project Star: 911 Automation Dashboard",
     page_icon="⭐",
     layout="wide"
@@ -223,7 +223,7 @@ if st.button("🚀 Run Processing & Generate Reports", type="primary"):
                     f1_data = base_priority_data[(base_priority_data.get('FNB_NPS') == "NPS - Detractor") | (base_priority_data.get('RM_BM_NPS') == "NPS - Detractor")]
                     f2_data = f1_data.drop(columns=['PRODUCT_PEOPLE_PROCESS'], errors='ignore')
                     f3_data = base_priority_data
-                    f4_data = base_pyridin_d4 = base_priority_data.drop(columns=['PRODUCT_PEOPLE_PROCESS'], errors='ignore')
+                    f4_data = base_priority_data.drop(columns=['PRODUCT_PEOPLE_PROCESS'], errors='ignore')
 
                     st.success("🎉 Processing complete! Download your output files below:")
 
